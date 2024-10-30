@@ -1,0 +1,168 @@
+-- Create the Database
+CREATE DATABASE LibraryDB;
+USE LibraryDB;
+
+-- Create Books Table
+CREATE TABLE Books (
+    book_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    author VARCHAR(100),
+    publication_year INT,
+    available BOOLEAN DEFAULT TRUE
+);
+
+-- Create Borrowers Table
+CREATE TABLE Borrowers (
+    borrower_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
+    phone VARCHAR(20)
+);
+
+-- Create Transactions Table
+CREATE TABLE Transactions (
+    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+    book_id INT,
+    borrower_id INT,
+    borrow_date DATE,
+    return_date DATE,
+    FOREIGN KEY (book_id) REFERENCES Books(book_id),
+    FOREIGN KEY (borrower_id) REFERENCES Borrowers(borrower_id)
+);
+
+import java.sql.*;
+import java.util.Scanner;
+
+public class LibraryManagementSystem {
+    private static final String URL = "jdbc:mysql://localhost:3306/LibraryDB";
+    private static final String USER = "root";
+    private static final String PASSWORD = "password"; // Replace with your MySQL password
+
+    private Connection conn;
+
+    public LibraryManagementSystem() {
+        try {
+            conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            System.out.println("Connected to the database.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addBook(String title, String author, int publicationYear) {
+        String sql = "INSERT INTO Books (title, author, publication_year) VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, title);
+            stmt.setString(2, author);
+            stmt.setInt(3, publicationYear);
+            stmt.executeUpdate();
+            System.out.println("Book added successfully.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addBorrower(String name, String email, String phone) {
+        String sql = "INSERT INTO Borrowers (name, email, phone) VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, name);
+            stmt.setString(2, email);
+            stmt.setString(3, phone);
+            stmt.executeUpdate();
+            System.out.println("Borrower added successfully.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void issueBook(int bookId, int borrowerId) {
+        String sqlUpdate = "UPDATE Books SET available = FALSE WHERE book_id = ?";
+        String sqlInsert = "INSERT INTO Transactions (book_id, borrower_id, borrow_date) VALUES (?, ?, CURDATE())";
+        try (PreparedStatement updateStmt = conn.prepareStatement(sqlUpdate);
+             PreparedStatement insertStmt = conn.prepareStatement(sqlInsert)) {
+
+            updateStmt.setInt(1, bookId);
+            updateStmt.executeUpdate();
+
+            insertStmt.setInt(1, bookId);
+            insertStmt.setInt(2, borrowerId);
+            insertStmt.executeUpdate();
+
+            System.out.println("Book issued successfully.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void returnBook(int bookId) {
+        String sqlUpdateBook = "UPDATE Books SET available = TRUE WHERE book_id = ?";
+        String sqlUpdateTransaction = "UPDATE Transactions SET return_date = CURDATE() WHERE book_id = ? AND return_date IS NULL";
+        try (PreparedStatement updateBookStmt = conn.prepareStatement(sqlUpdateBook);
+             PreparedStatement updateTransactionStmt = conn.prepareStatement(sqlUpdateTransaction)) {
+
+            updateBookStmt.setInt(1, bookId);
+            updateBookStmt.executeUpdate();
+
+            updateTransactionStmt.setInt(1, bookId);
+            updateTransactionStmt.executeUpdate();
+
+            System.out.println("Book returned successfully.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        LibraryManagementSystem library = new LibraryManagementSystem();
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("1. Add Book");
+            System.out.println("2. Add Borrower");
+            System.out.println("3. Issue Book");
+            System.out.println("4. Return Book");
+            System.out.println("5. Exit");
+            System.out.print("Enter your choice: ");
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (choice) {
+                case 1:
+                    System.out.print("Enter book title: ");
+                    String title = scanner.nextLine();
+                    System.out.print("Enter author: ");
+                    String author = scanner.nextLine();
+                    System.out.print("Enter publication year: ");
+                    int publicationYear = scanner.nextInt();
+                    library.addBook(title, author, publicationYear);
+                    break;
+                case 2:
+                    System.out.print("Enter borrower name: ");
+                    String name = scanner.nextLine();
+                    System.out.print("Enter email: ");
+                    String email = scanner.nextLine();
+                    System.out.print("Enter phone: ");
+                    String phone = scanner.nextLine();
+                    library.addBorrower(name, email, phone);
+                    break;
+                case 3:
+                    System.out.print("Enter book ID to issue: ");
+                    int bookId = scanner.nextInt();
+                    System.out.print("Enter borrower ID: ");
+                    int borrowerId = scanner.nextInt();
+                    library.issueBook(bookId, borrowerId);
+                    break;
+                case 4:
+                    System.out.print("Enter book ID to return: ");
+                    bookId = scanner.nextInt();
+                    library.returnBook(bookId);
+                    break;
+                case 5:
+                    System.out.println("Exiting...");
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+}
